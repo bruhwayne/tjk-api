@@ -272,15 +272,19 @@ def search_races():
             'X-Requested-With': 'XMLHttpRequest'
         }
         
+        # Şehir seçilmişse TumSehirler'i kapat
+        city = data.get('city', '')
+        all_cities = 'on' if not city or city == 'Tümü' else ''
+        
         payload = {
             'QueryParameter_TarihBaslangic': data.get('startDate', ''),
             'QueryParameter_TarihBitis': data.get('endDate', ''),
-            'QueryParameter_Sehir': data.get('city', ''),
-            'QueryParameter_TumSehirler': data.get('allCities', 'on'),
-            'QueryParameter_TumIrklar': data.get('allBreeds', 'on'),
-            'QueryParameter_TumKosuGrubu': data.get('allRaceGroups', 'on'),
-            'QueryParameter_TumPistler': data.get('allTracks', 'on'),
-            'QueryParameter_AprKosCinsi': data.get('raceType', ''),
+            'QueryParameter_Sehir': city if city != 'Tümü' else '',
+            'QueryParameter_TumSehirler': all_cities,
+            'QueryParameter_TumIrklar': 'on',
+            'QueryParameter_TumKosuGrubu': 'on',
+            'QueryParameter_TumPistler': 'on',
+            'QueryParameter_AprKosCinsi': data.get('raceType', '') if data.get('raceType') != 'Tümü' else '',
             'QueryParameter_Mesafe': data.get('distance', ''),
             'QueryParameter_BabaIsmi': data.get('fatherName', ''),
             'QueryParameter_AnneIsmi': data.get('motherName', ''),
