@@ -310,8 +310,18 @@ def search_races():
         # HTML'i parse et
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Yarış satırlarını bul
-        race_rows = soup.find_all('tr', class_='row-data')
+        # tbody1'i bul
+        tbody = soup.find('tbody', id='tbody1')
+        
+        if not tbody:
+            return jsonify({
+                'success': True,
+                'races': [],
+                'message': 'Sonuç bulunamadı'
+            })
+        
+        # Tüm satırları al
+        race_rows = tbody.find_all('tr')
         
         if not race_rows:
             return jsonify({
@@ -326,15 +336,18 @@ def search_races():
             try:
                 cells = row.find_all('td')
                 
-                if len(cells) >= 8:
+                if len(cells) >= 3:
                     # Detay linkini bul
                     detail_link = ''
-                    link_elem = row.find('a', href=True)
+                    link_elem = cells[0].find('a', href=True) if len(cells) > 0 else None
                     if link_elem:
                         detail_link = link_elem['href']
                     
+                    # Tarih hücresinden sadece metni al
+                    date_text = cells[0].text.strip() if len(cells) > 0 else ''
+                    
                     race = {
-                        'date': cells[0].text.strip() if len(cells) > 0 else '',
+                        'date': date_text,
                         'city': cells[1].text.strip() if len(cells) > 1 else '',
                         'raceNumber': cells[2].text.strip() if len(cells) > 2 else '',
                         'raceType': cells[3].text.strip() if len(cells) > 3 else '',
