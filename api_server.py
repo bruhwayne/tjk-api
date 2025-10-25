@@ -256,6 +256,118 @@ def get_horse_details():
             'error': f'Hata: {str(e)}'
         }), 500
 
+@app.route('/api/search-races', methods=['POST'])
+def search_races():
+    """Yarış arama endpoint'i"""
+    try:
+        data = request.json
+        
+        # Yarış sorgulama URL'si
+        race_url = "https://www.tjk.org/TR/YarisSever/Query/DataRows/KosuSorgulama"
+        
+        # Form payload'ını hazırla
+        params = {
+            'PageNumber': '1',
+            'Sort': 'Tarih desc, Sehir asc, KosuSirasi asc',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+        
+        payload = {
+            'QueryParameter_TarihBaslangic': data.get('startDate', ''),
+            'QueryParameter_TarihBitis': data.get('endDate', ''),
+            'QueryParameter_Sehir': data.get('city', ''),
+            'QueryParameter_TumSehirler': data.get('allCities', 'on'),
+            'QueryParameter_TumIrklar': data.get('allBreeds', 'on'),
+            'QueryParameter_TumKosuGrubu': data.get('allRaceGroups', 'on'),
+            'QueryParameter_TumPistler': data.get('allTracks', 'on'),
+            'QueryParameter_AprKosCinsi': data.get('raceType', ''),
+            'QueryParameter_Mesafe': data.get('distance', ''),
+            'QueryParameter_BabaIsmi': data.get('fatherName', ''),
+            'QueryParameter_AnneIsmi': data.get('motherName', ''),
+        }
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": "https://www.tjk.org/TR/YarisSever/Query/Page/KosuSorgulama"
+        }
+        
+        # TJK'ya istek gönder
+        response = requests.post(
+            race_url,
+            params=params,
+            data=payload,
+            headers=headers,
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            return jsonify({
+                'success': False,
+                'error': f'TJK sunucusundan cevap alınamadı. Status: {response.status_code}'
+            }), 500
+        
+        # HTML'i parse et
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Yarış satırlarını bul
+        race_rows = soup.find_all('tr', class_='row-data')
+        
+        if not race_rows:
+            return jsonify({
+                'success': True,
+                'races': [],
+                'message': 'Sonuç bulunamadı'
+            })
+        
+        races = []
+        
+        for row in race_rows:
+            try:
+                cells = row.find_all('td')
+                
+                if len(cells) >= 8:
+                    # Detay linkini bul
+                    detail_link = ''
+                    link_elem = row.find('a', href=True)
+                    if link_elem:
+                        detail_link = link_elem['href']
+                    
+                    race = {
+                        'date': cells[0].text.strip() if len(cells) > 0 else '',
+                        'city': cells[1].text.strip() if len(cells) > 1 else '',
+                        'raceNumber': cells[2].text.strip() if len(cells) > 2 else '',
+                        'raceType': cells[3].text.strip() if len(cells) > 3 else '',
+                        'distance': cells[4].text.strip() if len(cells) > 4 else '',
+                        'track': cells[5].text.strip() if len(cells) > 5 else '',
+                        'breed': cells[6].text.strip() if len(cells) > 6 else '',
+                        'gender': cells[7].text.strip() if len(cells) > 7 else '',
+                        'detailLink': detail_link
+                    }
+                    
+                    races.append(race)
+                    
+            except Exception as e:
+                print(f"Satır parse hatası: {e}")
+                continue
+        
+        return jsonify({
+            'success': True,
+            'races': races,
+            'count': len(races)
+        })
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            'success': False,
+            'error': f'İstek hatası: {str(e)}'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Beklenmeyen hata: {str(e)}'
+        }), 500
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Sunucu sağlık kontrolü"""
@@ -268,6 +380,7 @@ if __name__ == '__main__':
     print("Endpoint'ler:")
     print("  POST /api/search-horses - At arama")
     print("  POST /api/horse-details - At detayları")
+    print("  POST /api/search-races - Yarış arama")
     print("  GET  /health - Sağlık kontrolü")
     print(f"Port: {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
